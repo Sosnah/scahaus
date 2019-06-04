@@ -124,7 +124,9 @@ WideSales$deltaDiff
 
 ggplot(WideSales, aes(x= Period,y =deltaDiff))+geom_bar(stat='identity')+scale_x_discrete(labels = abbreviate)+theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
-Begründung????????????????????????
+Die Verwendung der Nachfragevorhersage des Gesamtmarktes als Grundlage der Vorhersage fuer unsere Produkte erachten wir als sinnvoll, da
+sowohl der Trend als auch die Saisonalität eine starke Übereinstimmung aufweist. Dies lässt sich insbesondere anhand der normierten Z-Sales erkennen. Trotz keiner 100% Übereinstimmung ist die Differenz beider Z-Sales relativ gering woraufhin auf eine starke Korrelation geschlossen werden kann.
+
 <!--##############################################-->
 # Pr1: Modellierung
 <!--##############################################-->
@@ -139,8 +141,6 @@ Als Orientierung bzgl. der Anpassung der Iterationen dient uns insbesondere der 
 -2 Iteration: Fehlertyp auf multiplakiv --> führt zu höherer Genauigkeit
 -3 Iteration: (MAM)--> unwesentlich schlechtere Fehlerquote, daher wieder zurück und den Trend auf NONE setzen
 -4 Iteration: MNM--> führt zu bester, wenn auch nur leicht besserer Fehlerquote, als MNA
-
-)
 
 ```{r}
 ###Modelle für Sales Japan
@@ -233,11 +233,24 @@ salesanteile
 ### PR1: (12) Prognose Marktanteile
 
 ````{r}
-
-salesanteile[1] = fcast6_Japan$mean*salesanteile[1]
-salesanteile[2] = fcast1_Pkng$mean*salesanteile[2]
-salesanteile[3] = fcast1_Phlppn$mean*salesanteile[3]
-salesanteile[4] =fcast1_Shangh$mean*salesanteile[4]
-salesanteile[5] =fcast1_Skorea$mean*salesanteile[5]
-salesanteile
+print(paste('ForecastJpn_1903=',fcast6_Japan$mean*salesanteile[1]))
+print(paste('ForecastPkng_1903=',fcast1_Pkng$mean*salesanteile[2]))
+print(paste('ForecastPhlppn_1903=',fcast1_Phlppn$mean*salesanteile[3]))
+print(paste('ForecastShangh_1903=',fcast1_Shangh$mean*salesanteile[4]))
+print(paste('ForecastSkorea_1903=',fcast1_Skorea$mean*salesanteile[5]))
 ````
+### PR1: (13) weiter Analyse für Rahmenverträge
+```{r}
+#Demand Forecast Gruppe201 inkl. Puffer (aufgrund Warehousing Schwund)
+fcast13_Japan = forecast(ets(WideSales$Sales.Japan, model = "ZZZ"),6)$mean*salesanteile[1]*1.12
+fcast13_Pkng = forecast(ets(WideSales$Sales.Peking, model = "ZZZ"),6)$mean*salesanteile[2]*1.12
+fcast13_Phlppn = forecast(ets(WideSales$Sales.Phlppn, model = "ZZZ"),6)$mean*salesanteile[3]*1.12
+fcast13_Shangh = forecast(ets(WideSales$Sales.Shangh, model = "ZZZ"),6)$mean*salesanteile[4]*1.12
+fcast13_Skorea = forecast(ets(WideSales$Sales.Skorea, model = "ZZZ"),6)$mean*salesanteile[5]*1.12
+
+cbind(fcast13_Japan,fcast13_Pkng, fcast13_Phlppn, fcast13_Shangh, fcast13_Skorea)
+
+
+
+```
+
