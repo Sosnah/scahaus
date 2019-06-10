@@ -1,0 +1,35 @@
+---
+title: "SCA_SS19_Gruppe201_HA"
+author: "NMR, JAZ"
+date: "06/10/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+<!--##############################################-->
+# Pr1: Daten Vorbereiten
+<!--##############################################-->
+
+## PR1: Laden der Daten und Libarys in R:
+```{r}
+# Laden der Transaktionsdaten
+externals = read.csv2("output_externals_8Players_v0005.csv")
+externals$Period = paste(sprintf('%02d', externals$Year %% 100), sprintf("%02d", c(externals$Month)), sep = "",  collapse = NULL)
+
+# Laden der Servicedaten
+services = read.csv2("output_services_8Players_v0005.csv")
+services$Period = paste(sprintf('%02d', services$Year %% 100), sprintf("%02d", c(services$Month)), sep = "",  collapse = NULL)
+services$ontime = services$DaysExecuted <= services$DaysScheduled
+services$ifr = services$QExecuted / services$QScheduled
+
+averageontime = tapply(services$ontime, services$vendor, mean)
+averageifr = tapply(services$ifr, services$vendor, mean)
+
+averageontime
+averageifr
+#macht das so sinn, oder muss noch ein aggregate mit rein?
+```
