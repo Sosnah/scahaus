@@ -9,6 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+### Last changes: https://github.com/marinustau/scahaus/commits/master/HA3_201_SCA_SS19.Rmd
 
 <!--##############################################-->
 # Pr1: Daten Vorbereiten
@@ -18,18 +19,36 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 # Laden der Transaktionsdaten
 externals = read.csv2("output_externals_8Players_v0005.csv")
-externals$Period = paste(sprintf('%02d', externals$Year %% 100), sprintf("%02d", c(externals$Month)), sep = "",  collapse = NULL)
+externals$period = paste(sprintf('%02d', externals$Year %% 100), sprintf("%02d", c(externals$Month)), sep = "",  collapse = NULL)
 
 # Laden der Servicedaten
 services = read.csv2("output_services_8Players_v0005.csv")
-services$Period = paste(sprintf('%02d', services$Year %% 100), sprintf("%02d", c(services$Month)), sep = "",  collapse = NULL)
-services$ontime = services$DaysExecuted <= services$DaysScheduled
+services$period = paste(sprintf('%02d', services$Year %% 100), sprintf("%02d", c(services$Month)), sep = "",  collapse = NULL)
+services$otd = services$DaysExecuted <= services$DaysScheduled
 services$ifr = services$QExecuted / services$QScheduled
 
-averageontime = tapply(services$ontime, services$vendor, mean)
+averageontime = tapply(services$otd, services$vendor, mean)
 averageifr = tapply(services$ifr, services$vendor, mean)
 
 averageontime
 averageifr
 #macht das so sinn, oder muss noch ein aggregate mit rein?
+```
+
+## PR2: Dataframe mit aggregierte Warhousingvendor pro Region
+
+```{r}
+
+DFifrregion = subset(aggregate(ifr ~ vendor+service+region+period, data = services, mean), service == "Warehousing")
+subset(DFifrregion, region == "Japan" & period == "1812")
+
+```
+
+## PR3: Dataframe mit aggregierte Shippingvendor pro Region
+
+```{r}
+
+DFotdregion = subset(aggregate(otd ~ vendor+service+region+period, data = services, mean), service == "Shipping")
+subset(DFotdregion, region == "Japan" & period == "1812")
+
 ```
