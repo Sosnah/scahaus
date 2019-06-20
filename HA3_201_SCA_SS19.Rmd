@@ -1,54 +1,468 @@
 ---
-title: "SCA_SS19_Gruppe201_HA"
+title: "HA3_NMR"
 author: "NMR, JAZ"
-date: "06/10/2019"
-output: pdf_document
+date: "6/11/2019"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Last changes: https://github.com/marinustau/scahaus/commits/master/HA3_201_SCA_SS19.Rmd
-
 <!--##############################################-->
 # Pr1: Daten Vorbereiten
 <!--##############################################-->
 
-## PR1: Laden der Daten und Libarys in R:
+## PR1:(1) Laden der Daten und Ergänzung um Period,IFR,OTD
 ```{r}
-# Laden der Transaktionsdaten
+#Transactions
+transactions = read.csv2("output_transactions_8Players_v0005.csv")
+transactions$Period = paste(sprintf('%02d', transactions$Year %% 100), sprintf("%02d", c(transactions$Month)), sep = "",  collapse = NULL)
+#Externals
 externals = read.csv2("output_externals_8Players_v0005.csv")
-externals$period = paste(sprintf('%02d', externals$Year %% 100), sprintf("%02d", c(externals$Month)), sep = "",  collapse = NULL)
+externals$Period = paste(sprintf('%02d', externals$Year %% 100), sprintf("%02d", c(externals$Month)), sep = "",  collapse = NULL)
 
-# Laden der Servicedaten
+#services
 services = read.csv2("output_services_8Players_v0005.csv")
-services$period = paste(sprintf('%02d', services$Year %% 100), sprintf("%02d", c(services$Month)), sep = "",  collapse = NULL)
-services$otd = services$DaysExecuted <= services$DaysScheduled
-services$ifr = services$QExecuted / services$QScheduled
+services$Period = paste(sprintf('%02d', services$Year %% 100), sprintf("%02d", c(services$Month)), sep = "",  collapse = NULL)
+services$OTD= services$DaysExecuted <= services$DaysScheduled
+services$IFR= services$QExecuted/services$QScheduled
 
-averageontime = tapply(services$otd, services$vendor, mean)
-averageifr = tapply(services$ifr, services$vendor, mean)
-
-averageontime
-averageifr
-#macht das so sinn, oder muss noch ein aggregate mit rein?
+tapply(services$OTD, services$vendor,mean)
+tapply(services$IFR, services$vendor, mean)
 ```
 
-## PR2: Dataframe mit aggregierte Warhousingvendor pro Region
+## PR1: (2) Aggregiertes Data Frame für IFR
+```{r}
+df_IFR = aggregate(IFR ~ vendor+region+Period, data=subset(services, service=='Warehousing' ),mean)
+
+subset(df_IFR, region=='Japan' & Period=='1812')
+```
+
+## PR1: (3) Aggregiertes Data Frame für OTD
+```{r}
+df_OTD = aggregate(OTD ~ vendor+region+Period, data=subset(services, service=='Shipping' ),mean)
+
+df_OTD
+subset(df_OTD, region=='Japan' & Period=='1812')
+```
+
+<!--##############################################-->
+# Pr1: Warehousing
+<!--##############################################-->
+
+## PR1: (4) df_IFR merge Externals
+```{r}
+merged_IFR = merge(subset(df_IFR,vendor =='AHL Warehousing'), externals, by= 'Period', by.x=c('region','Period'),  by.y=c('region','Period'))
+head(merged_IFR)
+```
+
+## PR1: (5) Korrelationen IFR für AHL Warehousing
 
 ```{r}
+#a)Korrelation Externals mit IFR_ AHL Warehousing
+cor(merged_IFR[,"IFR"], merged_IFR[,c(7:28)])
 
-DFifrregion = subset(aggregate(ifr ~ vendor+service+region+period, data = services, mean), service == "Warehousing")
-subset(DFifrregion, region == "Japan" & period == "1812")
+#b)Stärkste Korrelationen
+cor_maxAHL = head(abs(cor(merged_IFR[,"IFR"], merged_IFR[,c(7:28)])[,order(cor(merged_IFR[,"IFR"], merged_IFR[,c(7:28)]),decreasing = TRUE)]), n=5)
+as.data.frame(cor_maxAHL)
 
+#c) Korrelationsplot
+library("GGally")
+
+ggpairs(merged_IFR[,c("IFR","AirPollution","InternetStability","ParkingSpaceAvailability","UnskilledLaborAvailability","WaterQuality")],progress = FALSE, lower=list(continuous = wrap("smooth_loess", colour="steelblue1")))
 ```
 
-## PR3: Dataframe mit aggregierte Shippingvendor pro Region
+## PR1: (6) Baseline merged_IFR (AHL Warehousing)
+```{r}
+# Baseline durch Mittelwert erzeugen
+merged_IFR$Baseline = mean(merged_IFR$IFR)
+
+# Anzeigen der Daten (nur Kopf, nur relevante Variablen)
+head(merged_IFR[,c("Period","region","IFR","Baseline")])
+```
+Der Mittelwert des IFR biete sich als Baseline an, da somit eine Fehlerberechnung mittels MAE, MFE und MSE erfolgen kann. Ebenso ist somit direkt ersichtlich um wieviel der jeweilige IFR vom Durschnitt abweicht.
+## PR1: (7) Bewertung Baseline
+```{r}
+# DataFrame erzeugen, dass bei auf die Beschreibung ("Model") leer bzw. 0 ist
+evaluation = data.frame(Model = "Baseline",
+                        MFE = numeric(1),
+                        MAE = numeric(1),
+                        MSE = numeric(1))
+
+# MFE berechnen
+evaluation[evaluation$Model == "Baseline",]$MFE = mean(merged_IFR$IFR-merged_IFR$Baseline)
+
+# MAE berechnen
+evaluation[evaluation$Model == "Baseline",]$MAE = mean(abs(merged_IFR$IFR-merged_IFR$Baseline))
+
+# MSE berechnen
+evaluation[evaluation$Model == "Baseline",]$MSE = mean((merged_IFR$IFR-merged_IFR$Baseline)^2)
+
+# Fehler anzeigen
+evaluation
+```
+## PR1: (8) Training/Test-Set
+```{r}
+set.seed(1814)
+
+#Sample
+zufall = sample(1:nrow(merged_IFR), nrow(merged_IFR)*0.8)
+
+# TrainingsSet
+IFRTraining = merged_IFR[zufall, ]
+head(IFRTraining)
+
+#TestSet
+IFRTest = merged_IFR[-zufall,]
+head(IFRTest)
+```
+
+## PR1: (9)
+#Kommenatar Multikollinearität
+Da keine starke Korrelation der unabhängigen Variablen (> 0,8) vorhanden ist gehen wir von keiner Multikollinearität aus und beachten alle Variablen.
+
+#Vorgehen Auswahl Modell
+die Bewertung des Besten Modells erfolgt primär auf Basis der Fehlerwerte bzgl. des Test-sets. Somit wird dem Phänomen des Overfittings vorgebeugt und das Modell mit den besten Ergebnis für "unbekannte" Daten wird bevorzugt.
 
 ```{r}
+#### Modelle Iteration1
 
-DFotdregion = subset(aggregate(otd ~ vendor+service+region+period, data = services, mean), service == "Shipping")
-subset(DFotdregion, region == "Japan" & period == "1812")
+#Modell 1.1 AirPollution
+model1.1 = lm(IFR ~ AirPollution, data = IFRTraining)
+summary(model1.1)
+
+#Modell 1.2 InternetStability
+model1.2 = lm(IFR ~ InternetStability, data = IFRTraining)
+summary(model1.2)
+
+#Modell 1.3 ParkingSpaceAvailability
+model1.3 = lm(IFR ~ ParkingSpaceAvailability, data = IFRTraining)
+summary(model1.3)
+
+#Modell 1.4 UnskilledLaborAvailability
+model1.4 = lm(IFR ~ InternetStability, data = IFRTraining)
+summary(model1.4)
+
+#Modell 1.5 WaterQuality
+model1.5 = lm(IFR ~ WaterQuality, data = IFRTraining)
+summary(model1.5)
+```
+
+```{r}
+#Vorhersagen Iteration 1
+pred1.1 = predict(model1.1, newdata= IFRTest)
+pred1.2 = predict(model1.2, newdata= IFRTest)
+pred1.3 = predict(model1.3, newdata= IFRTest)
+pred1.4 = predict(model1.4, newdata= IFRTest)
+pred1.5 = predict(model1.5, newdata= IFRTest)
+
+# Data Frame erweitern
+evaluation = rbind(evaluation, data.frame(Model = c("Model1.1_test","Model1.2_test","Model1.3_test","Model1.4_test","Model1.5_test","Model1.1","Model1.2","Model1.3","Model1.4","Model1.5"),
+                                          MFE = numeric(1),
+                                          MAE = numeric(1),
+                                          MSE = numeric(1)))
+                                          
+# MFE berechnen
+evaluation[evaluation$Model == "Model1.1_test",]$MFE = mean(IFRTest$IFR - pred1.1)
+evaluation[evaluation$Model == "Model1.2_test",]$MFE = mean(IFRTest$IFR - pred1.2)
+evaluation[evaluation$Model == "Model1.3_test",]$MFE = mean(IFRTest$IFR - pred1.3)
+evaluation[evaluation$Model == "Model1.4_test",]$MFE = mean(IFRTest$IFR - pred1.4)
+evaluation[evaluation$Model == "Model1.5_test",]$MFE = mean(IFRTest$IFR - pred1.5)
+
+evaluation[evaluation$Model == "Model1.1",]$MFE = mean(model1.1$residuals)
+evaluation[evaluation$Model == "Model1.2",]$MFE = mean(model1.2$residuals)
+evaluation[evaluation$Model == "Model1.3",]$MFE = mean(model1.3$residuals)
+evaluation[evaluation$Model == "Model1.4",]$MFE = mean(model1.4$residuals)
+evaluation[evaluation$Model == "Model1.5",]$MFE = mean(model1.5$residuals)
+
+# MAE berechnen
+evaluation[evaluation$Model == "Model1.1_test",]$MAE = mean(abs(IFRTest$IFR - pred1.1))
+evaluation[evaluation$Model == "Model1.2_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred1.2))
+evaluation[evaluation$Model == "Model1.3_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred1.3))
+evaluation[evaluation$Model == "Model1.4_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred1.4))
+evaluation[evaluation$Model == "Model1.5_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred1.5))
+
+evaluation[evaluation$Model == "Model1.1",]$MAE = mean(abs(model1.1$residuals))
+evaluation[evaluation$Model == "Model1.2",]$MAE = mean(abs(model1.2$residuals))
+evaluation[evaluation$Model == "Model1.3",]$MAE = mean(abs(model1.3$residuals))
+evaluation[evaluation$Model == "Model1.4",]$MAE = mean(abs(model1.4$residuals))
+evaluation[evaluation$Model == "Model1.5",]$MAE = mean(abs(model1.5$residuals))
+
+# MSE berechnen
+evaluation[evaluation$Model == "Model1.1_test",]$MSE = mean((IFRTest$IFR - pred1.1)^2)
+evaluation[evaluation$Model == "Model1.2_test",]$MSE = mean((IFRTest$IFR - pred1.2)^2)
+evaluation[evaluation$Model == "Model1.3_test",]$MSE = mean((IFRTest$IFR - pred1.3)^2)
+evaluation[evaluation$Model == "Model1.4_test",]$MSE = mean((IFRTest$IFR - pred1.4)^2)
+evaluation[evaluation$Model == "Model1.5_test",]$MSE = mean((IFRTest$IFR - pred1.5)^2)
+
+evaluation[evaluation$Model == "Model1.1",]$MSE = mean((model1.1$residuals)^2)
+evaluation[evaluation$Model == "Model1.2",]$MSE = mean((model1.2$residuals)^2)
+evaluation[evaluation$Model == "Model1.3",]$MSE = mean((model1.3$residuals)^2)
+evaluation[evaluation$Model == "Model1.4",]$MSE = mean((model1.4$residuals)^2)
+evaluation[evaluation$Model == "Model1.5",]$MSE = mean((model1.5$residuals)^2)
+
+evaluation
+```
+#Kommentar: 1 Iteration
+Aufgrund der besten MFE MAE und MSE Werte (sowohl bei Test, als auch Train) sowie dem adjusted R-Squarred wird die Variable AirPollution des ersten Modells für die nächste Iteration als Basis verwendet.
+
+```{r}
+#### Modelle Iteration 2
+
+#Modell 2.1 AirPollution+InternetStability
+model2.1 = lm(IFR ~ AirPollution+InternetStability, data = IFRTraining)
+summary(model2.1)
+
+#Modell 2.2 AirPollution+ParkingSpaceAvailability
+model2.2 = lm(IFR ~ AirPollution+ParkingSpaceAvailability, data = IFRTraining)
+summary(model2.2)
+
+#Modell 2.3 AirPollution+UnskilledLaborAvailability
+model2.3 = lm(IFR ~ AirPollution+UnskilledLaborAvailability, data = IFRTraining)
+summary(model2.3)
+
+#Modell 1.4 AirPollution+WaterQuality
+model2.4 = lm(IFR ~ AirPollution+WaterQuality, data = IFRTraining)
+summary(model2.4)
 
 ```
+
+```{r}
+#Vorhersagen Iteration 2
+pred2.1 = predict(model2.1, newdata= IFRTest)
+pred2.2 = predict(model2.2, newdata= IFRTest)
+pred2.3 = predict(model2.3, newdata= IFRTest)
+pred2.4 = predict(model2.4, newdata= IFRTest)
+
+# Data Frame erweitern
+evaluation = rbind(evaluation, data.frame(Model = c("Model2.1_test","Model2.2_test","Model2.3_test","Model2.4_test", "Model2.1","Model2.2","Model2.3","Model2.4"),
+                                          MFE = numeric(1),
+                                          MAE = numeric(1),
+                                          MSE = numeric(1)))
+                                          
+# MFE berechnen
+evaluation[evaluation$Model == "Model2.1_test",]$MFE = mean(IFRTest$IFR - pred2.1)
+evaluation[evaluation$Model == "Model2.2_test",]$MFE = mean(IFRTest$IFR - pred2.2)
+evaluation[evaluation$Model == "Model2.3_test",]$MFE = mean(IFRTest$IFR - pred2.3)
+evaluation[evaluation$Model == "Model2.4_test",]$MFE = mean(IFRTest$IFR - pred2.4)
+
+evaluation[evaluation$Model == "Model2.1",]$MFE = mean(model2.1$residuals)
+evaluation[evaluation$Model == "Model2.2",]$MFE = mean(model2.2$residuals)
+evaluation[evaluation$Model == "Model2.3",]$MFE = mean(model2.3$residuals)
+evaluation[evaluation$Model == "Model2.4",]$MFE = mean(model2.4$residuals)
+
+# MAE berechnen
+evaluation[evaluation$Model == "Model2.1_test",]$MAE = mean(abs(IFRTest$IFR - pred2.1))
+evaluation[evaluation$Model == "Model2.2_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred2.2))
+evaluation[evaluation$Model == "Model2.3_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred2.3))
+evaluation[evaluation$Model == "Model2.4_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred2.4))
+
+evaluation[evaluation$Model == "Model2.1",]$MAE = mean(abs(model2.1$residuals))
+evaluation[evaluation$Model == "Model2.2",]$MAE = mean(abs(model2.2$residuals))
+evaluation[evaluation$Model == "Model2.3",]$MAE = mean(abs(model2.3$residuals))
+evaluation[evaluation$Model == "Model2.4",]$MAE = mean(abs(model2.4$residuals))
+
+# MSE berechnen
+evaluation[evaluation$Model == "Model2.1_test",]$MSE = mean((IFRTest$IFR - pred2.1)^2)
+evaluation[evaluation$Model == "Model2.2_test",]$MSE = mean((IFRTest$IFR - pred2.2)^2)
+evaluation[evaluation$Model == "Model2.3_test",]$MSE = mean((IFRTest$IFR - pred2.3)^2)
+evaluation[evaluation$Model == "Model2.4_test",]$MSE = mean((IFRTest$IFR - pred2.4)^2)
+
+evaluation[evaluation$Model == "Model2.1",]$MSE = mean((model2.1$residuals)^2)
+evaluation[evaluation$Model == "Model2.2",]$MSE = mean((model2.2$residuals)^2)
+evaluation[evaluation$Model == "Model2.3",]$MSE = mean((model2.3$residuals)^2)
+evaluation[evaluation$Model == "Model2.4",]$MSE = mean((model2.4$residuals)^2)
+
+evaluation
+```
+#Kommentar: 2 Iteration
+Aufgrund der besten MFE MAE und MSE Werte (sowohl bei Test, als auch Train) sowie dem adjusted R-Squarred wird die Variable AirPollution+ParkingSpaceAvailability des Modells 2.2 für die nächste Iteration als Basis verwendet.
+
+#Modelle Iteration 3
+```{r}
+#Modell 3.1 AirPollution+ParkingSpaceAvailability+InternetStability
+model3.1 = lm(IFR ~ AirPollution+ParkingSpaceAvailability+InternetStability, data = IFRTraining)
+summary(model3.1)
+
+#Modell 3.2 AirPollution+ParkingSpaceAvailability+WaterQuality
+model3.2 = lm(IFR ~ AirPollution+ParkingSpaceAvailability+WaterQuality, data = IFRTraining)
+summary(model3.2)
+
+#Modell 3.3 AirPollution+ParkingSpaceAvailability+UnskilledLaborAvailability
+model3.3 = lm(IFR ~ AirPollution+ParkingSpaceAvailability+UnskilledLaborAvailability, data = IFRTraining)
+summary(model3.3)
+```
+
+```{r}
+#Vorhersagen Iteration 3
+pred3.1 = predict(model3.1, newdata= IFRTest)
+pred3.2 = predict(model3.2, newdata= IFRTest)
+pred3.3 = predict(model3.3, newdata= IFRTest)
+
+
+# Data Frame erweitern
+evaluation = rbind(evaluation, data.frame(Model = c("Model3.1_test","Model3.2_test","Model3.3_test", "Model3.1","Model3.2","Model3.3"),
+                                          MFE = numeric(1),
+                                          MAE = numeric(1),
+                                          MSE = numeric(1)))
+                                          
+# MFE berechnen
+evaluation[evaluation$Model == "Model3.1_test",]$MFE = mean(IFRTest$IFR - pred3.1)
+evaluation[evaluation$Model == "Model3.2_test",]$MFE = mean(IFRTest$IFR - pred3.2)
+evaluation[evaluation$Model == "Model3.3_test",]$MFE = mean(IFRTest$IFR - pred3.3)
+
+evaluation[evaluation$Model == "Model3.1",]$MFE = mean(model3.1$residuals)
+evaluation[evaluation$Model == "Model3.2",]$MFE = mean(model3.2$residuals)
+evaluation[evaluation$Model == "Model3.3",]$MFE = mean(model3.3$residuals)
+
+# MAE berechnen
+evaluation[evaluation$Model == "Model3.1_test",]$MAE = mean(abs(IFRTest$IFR - pred3.1))
+evaluation[evaluation$Model == "Model3.2_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred3.2))
+evaluation[evaluation$Model == "Model3.3_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred3.3))
+
+evaluation[evaluation$Model == "Model3.1",]$MAE = mean(abs(model3.1$residuals))
+evaluation[evaluation$Model == "Model3.2",]$MAE = mean(abs(model3.2$residuals))
+evaluation[evaluation$Model == "Model3.3",]$MAE = mean(abs(model3.3$residuals))
+
+
+# MSE berechnen
+evaluation[evaluation$Model == "Model3.1_test",]$MSE = mean((IFRTest$IFR - pred3.1)^2)
+evaluation[evaluation$Model == "Model3.2_test",]$MSE = mean((IFRTest$IFR - pred3.2)^2)
+evaluation[evaluation$Model == "Model3.3_test",]$MSE = mean((IFRTest$IFR - pred3.3)^2)
+
+evaluation[evaluation$Model == "Model3.1",]$MSE = mean((model3.1$residuals)^2)
+evaluation[evaluation$Model == "Model3.2",]$MSE = mean((model3.2$residuals)^2)
+evaluation[evaluation$Model == "Model3.3",]$MSE = mean((model3.3$residuals)^2)
+evaluation
+```
+
+#Kommentar: 3 Iteration
+Aufgrund der besten MFE MAE und MSE Werte (beim Test-Set, welches als ausschlaggebend angenommen wird auf Grund der letzendlichen Anwendung auf "unerlernte" Daten zu Prognose Zwecken) 
+--> AirPollution+ParkingSpaceAvailability+InternetStability des Modells 3.1 wird für die nächste Iteration als Basis verwendet.
+
+#Modelle Iteration 4
+```{r}
+#Modell 4.1 AirPollution+ParkingSpaceAvailability+InternetStability+UnskilledLaborAvailability
+model4.1 = lm(IFR ~ AirPollution+ParkingSpaceAvailability+InternetStability+UnskilledLaborAvailability, data = IFRTraining)
+summary(model4.1)
+
+#Modell 3.2 AirPollution+ParkingSpaceAvailability+InternetStability+WaterQuality
+model4.2 = lm(IFR ~ AirPollution+ParkingSpaceAvailability+InternetStability+WaterQuality, data = IFRTraining)
+summary(model4.2)
+```
+
+```{r}
+#Vorhersagen Iteration 4
+pred4.1 = predict(model4.1, newdata= IFRTest)
+pred4.2 = predict(model4.2, newdata= IFRTest)
+
+# Data Frame erweitern
+evaluation = rbind(evaluation, data.frame(Model = c("Model4.1_test","Model4.2_test", "Model4.1","Model4.2"),
+                                          MFE = numeric(1),
+                                          MAE = numeric(1),
+                                          MSE = numeric(1)))
+                                          
+# MFE berechnen
+evaluation[evaluation$Model == "Model4.1_test",]$MFE = mean(IFRTest$IFR - pred4.1)
+evaluation[evaluation$Model == "Model4.2_test",]$MFE = mean(IFRTest$IFR - pred4.2)
+
+evaluation[evaluation$Model == "Model4.1",]$MFE = mean(model4.1$residuals)
+evaluation[evaluation$Model == "Model4.2",]$MFE = mean(model4.2$residuals)
+
+# MAE berechnen
+evaluation[evaluation$Model == "Model4.1_test",]$MAE = mean(abs(IFRTest$IFR - pred4.1))
+evaluation[evaluation$Model == "Model4.2_test",]$MAE = 
+mean(abs(IFRTest$IFR - pred4.2))
+
+evaluation[evaluation$Model == "Model4.1",]$MAE = mean(abs(model4.1$residuals))
+evaluation[evaluation$Model == "Model4.2",]$MAE = mean(abs(model4.2$residuals))
+
+# MSE berechnen
+evaluation[evaluation$Model == "Model4.1_test",]$MSE = mean((IFRTest$IFR - pred4.1)^2)
+evaluation[evaluation$Model == "Model4.2_test",]$MSE = mean((IFRTest$IFR - pred4.2)^2)
+
+evaluation[evaluation$Model == "Model4.1",]$MSE = mean((model4.1$residuals)^2)
+evaluation[evaluation$Model == "Model4.2",]$MSE = mean((model4.2$residuals)^2)
+
+evaluation
+```
+
+#Kommentar: 4 Iteration
+Bei der 4ten Iteration kam es zu einer Verschlechterung der Prognose genauigkeit innerhalb des Test-Sets. Das Trainingsset hingegen erzielte eine höhere Genauigkeit als bei der 3. Iteration. Dies ist insbesondere anhand der Fehlerwerte MSE MFE und MAE zu erkennen. Dies ist möglicherweise auf einen Overftitting-Effekt zurückzuziehen. Da wir unser Modell letzendlich nutzen wollen um auf Basis unbekannter Daten Prognosen zu erstellen ziehen wir es vor unsere Entscheidung auf Basis der Test-Set Ergebnisse zu treffen
+--> Modell 3.1 ist somit das beste und wird für weitere Analysen verwendet.
+
+## PR1: (10) Vorhersage IFR für 201905 
+mit dem Modell 3.1
+```{r}
+data.frame(externals$region[321:325],predict(model3.1, newdata= subset(externals, Period=='1905')))
+```
+## PR1: (11) Marktanteil 
+```{r}
+# Dataframe, welches aus der vorherigen Dataframe die Sales nach den Regionen summiert 
+SalesRegion201 = tapply(subset(transactions, Product == "Gruppe201"&Period =="1904")$Sales, subset(transactions, Product == "Gruppe201"&Period=="1904")$region, sum)
+
+#Neues Dataframe, welches für alle Gruppe die Sales nach Regionen summiert
+SalesRegion = tapply(subset(transactions, Period=="1904")$Sales, subset(transactions, Period=="1904")$region, sum)
+
+#Ausgaben von Anteil an Verkäufen unserer Gruppe. Auf "-1" verzichtet, da mit Kommazahl anschaulicher. 
+salesanteile = SalesRegion201/SalesRegion
+salesanteile
+```
+## PR1: (12) Nachfrage nach Produkten je Region
+#Aus HA2
+```{r}
+Sales = aggregate(Sales ~ Period+region, data= subset(transactions, Period<='1902'),sum)
+Sales
+
+WideSales = reshape(Sales, idvar = "Period", timevar = "region", direction = "wide")
+WideSales
+
+WideSales$Sales.Japan = ts(WideSales$Sales.Japan, frequency=12 )
+WideSales$Sales.Peking = ts(WideSales$Sales.Peking, frequency=12 )
+WideSales$Sales.Phlppn = ts(WideSales$Sales.Phlppn, frequency=12 )
+WideSales$Sales.Shangh = ts(WideSales$Sales.Shangh, frequency=12 )
+WideSales$Sales.Skorea = ts(WideSales$Sales.Skorea, frequency=12 )
+
+fcast1_Pkng = forecast(ets(WideSales$Sales.Peking, model = "ZZZ"),3)
+fcast1_Phlppn = forecast(ets(WideSales$Sales.Phlppn, model = "ZZZ"),3)
+fcast1_Shangh = forecast(ets(WideSales$Sales.Shangh, model = "ZZZ"),3)
+fcast1_Skorea = forecast(ets(WideSales$Sales.Skorea, model = "ZZZ"),3)
+fcast6_Japan = forecast(ets(WideSales$Sales.Japan, model = "ZZZ"),3)
+
+
+```
+#Nachfrage je Region für 201905
+```{r}
+#Demand
+fcast1_Shangh$mean[3]*salesanteile[4]
+fcast1_Pkng$mean[3]*salesanteile[2]
+fcast1_Phlppn$mean[3]*salesanteile[3]
+fcast1_Skorea$mean[3]*salesanteile[5]
+fcast6_Japan$mean[3]*salesanteile[1]
+```
+## PR1: (13) nötige Bereitstellung der Produktmenge je Region
+```{r}
+x12= predict(model3.1, newdata= subset(externals, Period=='1905'))
+#Nötige Produktmenge im Falle von Kooperation AHL Warehousing
+fcast1_Shangh$mean[3]*salesanteile[4]/x12[1]
+fcast1_Pkng$mean[3]*salesanteile[2]/x12[2]
+fcast1_Phlppn$mean[3]*salesanteile[3]/x12[5]
+fcast1_Skorea$mean[3]*salesanteile[5]/x12[4]
+fcast6_Japan$mean[3]*salesanteile[1]/x12[3]
+
+mean(x12)
+1/mean(x12)
+```
+Eine durschnittliche IFR-Kennzahl von 0,84 bedeutet das wir um den Faktor 1.188562 ~ 19% Produkte mehr bereitstellen müssten. Aufgrund dessen würden wir eine Kooperation mit diesen Logistikdiensleister vermeiden.
+
+
