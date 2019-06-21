@@ -88,7 +88,9 @@ Der Mittelwert des IFR biete sich als Baseline an, da somit eine Fehlerberechnun
 evaluation = data.frame(Model = "Baseline",
                         MFE = numeric(1),
                         MAE = numeric(1),
-                        MSE = numeric(1))
+                        MSE = numeric(1),
+                        MAPE = numeric(1)
+                       )
 
 # MFE berechnen
 evaluation[evaluation$Model == "Baseline",]$MFE = mean(merged_IFR$IFR-merged_IFR$Baseline)
@@ -98,6 +100,9 @@ evaluation[evaluation$Model == "Baseline",]$MAE = mean(abs(merged_IFR$IFR-merged
 
 # MSE berechnen
 evaluation[evaluation$Model == "Baseline",]$MSE = mean((merged_IFR$IFR-merged_IFR$Baseline)^2)
+
+# MAPE berechnen
+evaluation[evaluation$Model == "Baseline",]$MAPE = mean(abs(((merged_IFR$IFR-merged_IFR$Baseline)/merged_IFR$IFR)*100))
 
 # Fehler anzeigen
 evaluation
@@ -161,9 +166,11 @@ pred1.5 = predict(model1.5, newdata= IFRTest)
 evaluation = rbind(evaluation, data.frame(Model = c("Model1.1_test","Model1.2_test","Model1.3_test","Model1.4_test","Model1.5_test","Model1.1","Model1.2","Model1.3","Model1.4","Model1.5"),
                                           MFE = numeric(1),
                                           MAE = numeric(1),
-                                          MSE = numeric(1)))
+                                          MSE = numeric(1),
+                                          MAPE = numeric(1)))
                                           
 # MFE berechnen
+
 evaluation[evaluation$Model == "Model1.1_test",]$MFE = mean(IFRTest$IFR - pred1.1)
 evaluation[evaluation$Model == "Model1.2_test",]$MFE = mean(IFRTest$IFR - pred1.2)
 evaluation[evaluation$Model == "Model1.3_test",]$MFE = mean(IFRTest$IFR - pred1.3)
@@ -205,6 +212,21 @@ evaluation[evaluation$Model == "Model1.2",]$MSE = mean((model1.2$residuals)^2)
 evaluation[evaluation$Model == "Model1.3",]$MSE = mean((model1.3$residuals)^2)
 evaluation[evaluation$Model == "Model1.4",]$MSE = mean((model1.4$residuals)^2)
 evaluation[evaluation$Model == "Model1.5",]$MSE = mean((model1.5$residuals)^2)
+
+# MAPE berechnen
+
+evaluation[evaluation$Model == "Model1.1_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.1)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.2_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.2)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.3_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.3)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.4_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.4)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.5_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.5)/ IFRTest$IFR)*100))
+
+evaluation[evaluation$Model == "Model1.1",]$ MAPE = mean(abs(((model1.1$residuals)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.2",]$ MAPE = mean(abs(((model1.2$residuals)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.3",]$ MAPE = mean(abs(((model1.3$residuals)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.4",]$ MAPE = mean(abs(((model1.4$residuals)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.5",]$ MAPE = mean(abs(((model1.5$residuals)/ IFRTest$IFR)*100))
+
 
 evaluation
 ```
