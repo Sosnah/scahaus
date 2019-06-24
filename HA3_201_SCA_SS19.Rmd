@@ -221,11 +221,11 @@ evaluation[evaluation$Model == "Model1.3_test",]$MAPE = mean(abs(((IFRTest$IFR -
 evaluation[evaluation$Model == "Model1.4_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.4)/ IFRTest$IFR)*100))
 evaluation[evaluation$Model == "Model1.5_test",]$MAPE = mean(abs(((IFRTest$IFR - pred1.5)/ IFRTest$IFR)*100))
 
-evaluation[evaluation$Model == "Model1.1",]$ MAPE = mean(abs(((model1.1$residuals)/ IFRTest$IFR)*100))
-evaluation[evaluation$Model == "Model1.2",]$ MAPE = mean(abs(((model1.2$residuals)/ IFRTest$IFR)*100))
-evaluation[evaluation$Model == "Model1.3",]$ MAPE = mean(abs(((model1.3$residuals)/ IFRTest$IFR)*100))
-evaluation[evaluation$Model == "Model1.4",]$ MAPE = mean(abs(((model1.4$residuals)/ IFRTest$IFR)*100))
-evaluation[evaluation$Model == "Model1.5",]$ MAPE = mean(abs(((model1.5$residuals)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model1.1",]$MAPE = mean(abs(((model1.1$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model1.2",]$MAPE = mean(abs(((model1.2$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model1.3",]$MAPE = mean(abs(((model1.3$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model1.4",]$MAPE = mean(abs(((model1.4$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model1.5",]$MAPE = mean(abs(((model1.5$residuals)/ IFRTraining$IFR)*100))
 
 
 evaluation
@@ -265,7 +265,8 @@ pred2.4 = predict(model2.4, newdata= IFRTest)
 evaluation = rbind(evaluation, data.frame(Model = c("Model2.1_test","Model2.2_test","Model2.3_test","Model2.4_test", "Model2.1","Model2.2","Model2.3","Model2.4"),
                                           MFE = numeric(1),
                                           MAE = numeric(1),
-                                          MSE = numeric(1)))
+                                          MSE = numeric(1),
+                                          MAPE = numeric(1)))
                                           
 # MFE berechnen
 evaluation[evaluation$Model == "Model2.1_test",]$MFE = mean(IFRTest$IFR - pred2.1)
@@ -303,6 +304,18 @@ evaluation[evaluation$Model == "Model2.2",]$MSE = mean((model2.2$residuals)^2)
 evaluation[evaluation$Model == "Model2.3",]$MSE = mean((model2.3$residuals)^2)
 evaluation[evaluation$Model == "Model2.4",]$MSE = mean((model2.4$residuals)^2)
 
+# MAPE berechnen
+
+evaluation[evaluation$Model == "Model2.1_test",]$MAPE = mean(abs(((IFRTest$IFR - pred2.1)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model2.2_test",]$MAPE = mean(abs(((IFRTest$IFR - pred2.2)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model2.3_test",]$MAPE = mean(abs(((IFRTest$IFR - pred2.3)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model2.4_test",]$MAPE = mean(abs(((IFRTest$IFR - pred2.4)/ IFRTest$IFR)*100))
+
+evaluation[evaluation$Model == "Model2.1",]$MAPE = mean(abs(((model2.1$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model2.2",]$MAPE = mean(abs(((model2.2$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model2.3",]$MAPE = mean(abs(((model2.3$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model2.4",]$MAPE = mean(abs(((model2.4$residuals)/ IFRTraining$IFR)*100))
+
 evaluation
 ```
 #Kommentar: 2 Iteration
@@ -334,7 +347,8 @@ pred3.3 = predict(model3.3, newdata= IFRTest)
 evaluation = rbind(evaluation, data.frame(Model = c("Model3.1_test","Model3.2_test","Model3.3_test", "Model3.1","Model3.2","Model3.3"),
                                           MFE = numeric(1),
                                           MAE = numeric(1),
-                                          MSE = numeric(1)))
+                                          MSE = numeric(1),
+                                          MAPE = numeric(1)))
                                           
 # MFE berechnen
 evaluation[evaluation$Model == "Model3.1_test",]$MFE = mean(IFRTest$IFR - pred3.1)
@@ -365,6 +379,18 @@ evaluation[evaluation$Model == "Model3.3_test",]$MSE = mean((IFRTest$IFR - pred3
 evaluation[evaluation$Model == "Model3.1",]$MSE = mean((model3.1$residuals)^2)
 evaluation[evaluation$Model == "Model3.2",]$MSE = mean((model3.2$residuals)^2)
 evaluation[evaluation$Model == "Model3.3",]$MSE = mean((model3.3$residuals)^2)
+
+# MAPE berechnen
+
+evaluation[evaluation$Model == "Model3.1_test",]$MAPE = mean(abs(((IFRTest$IFR - pred3.1)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model3.2_test",]$MAPE = mean(abs(((IFRTest$IFR - pred3.2)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model3.3_test",]$MAPE = mean(abs(((IFRTest$IFR - pred3.3)/ IFRTest$IFR)*100))
+
+evaluation[evaluation$Model == "Model3.1",]$MAPE = mean(abs(((model3.1$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model3.2",]$MAPE = mean(abs(((model3.2$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model3.3",]$MAPE = mean(abs(((model3.3$residuals)/ IFRTraining$IFR)*100))
+
+
 evaluation
 ```
 
@@ -392,7 +418,8 @@ pred4.2 = predict(model4.2, newdata= IFRTest)
 evaluation = rbind(evaluation, data.frame(Model = c("Model4.1_test","Model4.2_test", "Model4.1","Model4.2"),
                                           MFE = numeric(1),
                                           MAE = numeric(1),
-                                          MSE = numeric(1)))
+                                          MSE = numeric(1),
+                                          MAPE = numeric(1)))
                                           
 # MFE berechnen
 evaluation[evaluation$Model == "Model4.1_test",]$MFE = mean(IFRTest$IFR - pred4.1)
@@ -415,6 +442,15 @@ evaluation[evaluation$Model == "Model4.2_test",]$MSE = mean((IFRTest$IFR - pred4
 
 evaluation[evaluation$Model == "Model4.1",]$MSE = mean((model4.1$residuals)^2)
 evaluation[evaluation$Model == "Model4.2",]$MSE = mean((model4.2$residuals)^2)
+
+# MAPE berechnen
+
+evaluation[evaluation$Model == "Model4.1_test",]$MAPE = mean(abs(((IFRTest$IFR - pred4.1)/ IFRTest$IFR)*100))
+evaluation[evaluation$Model == "Model4.2_test",]$MAPE = mean(abs(((IFRTest$IFR - pred4.2)/ IFRTest$IFR)*100))
+
+evaluation[evaluation$Model == "Model4.1",]$MAPE = mean(abs(((model4.1$residuals)/ IFRTraining$IFR)*100))
+evaluation[evaluation$Model == "Model4.2",]$MAPE = mean(abs(((model4.2$residuals)/ IFRTraining$IFR)*100))
+
 
 evaluation
 ```
